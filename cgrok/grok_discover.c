@@ -186,6 +186,8 @@ void grok_discover(const grok_discover_t *gdt, /*grok_t *dest_grok, */
     if (max_matchlen == 0) { /* No valid matches were found */
       if (first_match_endpos > 0) {
         offset += first_match_endpos;
+      } else {
+        offset += 1;
       }
     } else { /* We found a match, replace it in the pattern */
       grok_log(gdt, LOG_DISCOVER, "%d: Matched %s on '%.*s'",

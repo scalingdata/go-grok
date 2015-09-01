@@ -76,10 +76,14 @@ int grok_patterns_import_from_file(const grok_t *grok, const char *filename) {
   memset(buffer, 0, filesize);
   bytes = fread(buffer, 1, filesize, patfile);
   if (bytes != filesize) {
-    grok_log(grok, LOG_PATTERNS, "Unable to open '%s' for reading: %s",
-             filename, strerror(errno));
-    fprintf(stderr, "Expected %zd bytes, but read %zd.", filesize, bytes);
-    return GROK_ERROR_UNEXPECTED_READ_SIZE;
+    // Using ftell on a text file, we may get less bytes than we expect.
+    // Test if we hit EOF
+    if (!feof(patfile)) {
+      grok_log(grok, LOG_PATTERNS, "Unable to open '%s' for reading: %s",
+               filename, strerror(errno));
+      fprintf(stderr, "Expected %zd bytes, but read %zd.", filesize, bytes);
+      return GROK_ERROR_UNEXPECTED_READ_SIZE;
+    }
   }
 
   grok_patterns_import_from_string(grok, buffer);

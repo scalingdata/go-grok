@@ -4,8 +4,10 @@
 #ifndef _GROK_H_
 #define _GROK_H_
 
+#include <stdio.h>
+#include "tree.h"
+#define PCRE_STATIC
 #include <pcre.h>
-#include <tcutil.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>

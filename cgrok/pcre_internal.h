@@ -41,7 +41,7 @@ POSSIBILITY OF SUCH DAMAGE.
 /* This header contains definitions that are shared between the different
 modules, but which are not relevant to the exported API. This includes some
 functions whose names all begin with "_pcre_". */
-
+#include "config.h"
 #ifndef PCRE_INTERNAL_H
 #define PCRE_INTERNAL_H
 
@@ -310,7 +310,6 @@ defined here.
 The macros are controlled by the value of LINK_SIZE. This defaults to 2 in
 the config.h file, but can be overridden by using -D on the command line. This
 is automated on Unix systems via the "configure" command. */
-
 #if LINK_SIZE == 2
 
 #define PUT(a,n,d)   \
