@@ -42,6 +42,8 @@ POSSIBILITY OF SUCH DAMAGE.
 modules, but which are not relevant to the exported API. This includes some
 functions whose names all begin with "_pcre_". */
 
+// We need to include config.h or LINK_SIZE isn't set
+#include "config.h"
 #ifndef PCRE_INTERNAL_H
 #define PCRE_INTERNAL_H
 
