@@ -1,4 +1,5 @@
 #include "tree.h"
+#include <stdio.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -33,6 +34,9 @@ TCTREE *tctreenew(void) {
 // because of how we pack the keys
 TCTREE *tctreenew2(dict_compare_func cp, void *cmpop) {
   TCTREE *tree = malloc(sizeof(TCTREE));
+  if (!tree) {
+    return NULL;
+  }
   tree->dict = hb_dict_new(cp, tcfree);
   tree->iter = NULL;
   return tree; 
@@ -67,6 +71,9 @@ const void *tctreeiternext(TCTREE *tree, int *sp) {
 // to find the lenght of a key.
 void *tcpack(const void *value, uint32_t size) {
   char *buf = malloc(size + 5);
+  if (!buf) {
+    return NULL;
+  }
   memcpy(buf, &size, 4);
   memcpy(buf+4, value, size);
   buf[size+4] = 0;
@@ -76,7 +83,13 @@ void *tcpack(const void *value, uint32_t size) {
 // Insert a key-value pair. If the key already exists the value will be overwritten
 void tctreeput(TCTREE *tree, const void *kbuf, int ksiz, const void *vbuf, int vsiz) {
   void *key = tcpack(kbuf, ksiz);
+  if (!key) {
+    
+  }
   void *val = tcpack(vbuf, vsiz);
+  if (!val) {
+
+  }
   bool inserted; 
   void ** valPtr = dict_insert(tree->dict, key, &inserted);
   if (!inserted) {
@@ -88,8 +101,16 @@ void tctreeput(TCTREE *tree, const void *kbuf, int ksiz, const void *vbuf, int v
 
 // Insert a key-value pair. If the key already exists return false and keep the original value
 bool tctreeputkeep(TCTREE *tree, const void *kbuf, int ksiz, const void *vbuf, int vsiz) {
-  void *key = tcpack(kbuf, ksiz); 
+  void *key = tcpack(kbuf, ksiz);
+  if (!key) {
+    fprintf(stderr, "Failed to malloc tree key\n");
+    return;
+  } 
   void *val = tcpack(vbuf, vsiz); 
+  if (!val) {
+    fprintf(stderr, "Failed to malloc tree value\n");
+    return;
+  }
   bool inserted;
   void **valPtr = dict_insert(tree->dict, key, &inserted);
   if (inserted) {
@@ -104,8 +125,13 @@ bool tctreeputkeep(TCTREE *tree, const void *kbuf, int ksiz, const void *vbuf, i
 // Get the value for the given key, or NULL if the key is not in the tree
 const void *tctreeget(TCTREE *tree, const void *kbuf, int ksiz, int *sp) {
   const void *key = tcpack(kbuf, ksiz);
+  if (!key) {
+    fprintf(stderr, "Failed to malloc tree key\n");
+    return;
+  }
   void *value = dict_search(tree->dict, key);
   *sp = 0;
+  free(key);
   if (value) {
     *sp = *(uint32_t*)value;
     return value+4;
@@ -130,8 +156,14 @@ void tctreedel(TCTREE *tree) {
 // A simple, singly linked list
 TCLIST *tclistnew(void) {
   TCLIST *list = malloc(sizeof(TCLIST));
+  if (!list) {
+    return NULL;
+  }
   list->len = 0;
   TCLISTELEM *newElem = malloc(sizeof(TCLISTELEM));
+  if (!newElem) {
+    return NULL;
+  }
   newElem->elem = 0;
   list->head = newElem;
   return list;
@@ -145,6 +177,9 @@ int tclistnum(const TCLIST *list) {
 // Null-terminate the value to be inserted, as TokyoCabinet does
 void *tclistpack(void *buf, uint32_t size) {
   void *elem = malloc(size+1);
+  if (!elem) {
+    return NULL;
+  }
   memcpy(elem, buf, size);
   ((char *)elem)[size] = 0;
   return elem;
@@ -158,6 +193,10 @@ void tclistpush(TCLIST *list, const void *ptr, int size) {
   }
   TCLISTELEM *newElem = malloc(sizeof(TCLISTELEM));
   newElem->elem = tclistpack(ptr, size);
+  if (!newElem->elem) {
+    fprintf(stderr, "Failed to malloc list element\n");
+    return;   
+  }
   newElem->size = size;
   head->next = newElem;
   list->len += 1;
@@ -200,6 +239,10 @@ void tclistover(TCLIST *list, int index, const void *ptr, int size) {
   }
  
   head->elem = tclistpack(ptr, size);
+  if (!head->elem) {
+    fprintf(stderr, "Failed to malloc list element\n");
+    return;
+  }
   head->size = size; 
 }
 
@@ -220,7 +263,7 @@ const void *tclistval(const TCLIST *list, int index, int *sp) {
 // Delete the entire list, freeing all elements
 void tclistdel(TCLIST *list) {
   TCLISTELEM *head = list->head;
-  for (int i=0; i < list->len; i++) {
+  for (int i=0; i <= list->len; i++) {
     if (head->elem) {
       free(head->elem);
     }
