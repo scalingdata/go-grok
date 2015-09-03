@@ -29,6 +29,8 @@ TCTREE *tctreenew(void) {
   return tctreenew2(dict_var_str_cmp, 0);
 }
 
+// Make a new tree with a user-defined comparator (must be tccmpint32 or dict_var_str_cmp),
+// because of how we pack the keys
 TCTREE *tctreenew2(dict_compare_func cp, void *cmpop) {
   TCTREE *tree = malloc(sizeof(TCTREE));
   tree->dict = hb_dict_new(cp, tcfree);
@@ -36,7 +38,9 @@ TCTREE *tctreenew2(dict_compare_func cp, void *cmpop) {
   return tree; 
 }
 
-// Iterate over elements in ascending key order
+// Create an iterator to walk keys in ascending order
+// TokyoCabinet only allows one iterator per tree,
+// so we do the same.
 void tctreeiterinit(TCTREE *tree) {
   if (tree->iter != NULL) {
     dict_itor_free(tree->iter);
@@ -45,6 +49,7 @@ void tctreeiterinit(TCTREE *tree) {
   dict_itor_first(tree->iter);
 }
 
+// Get the next key from the iterator
 const void *tctreeiternext(TCTREE *tree, int *sp) {
   void *key = dict_itor_key(tree->iter);
   dict_itor_next(tree->iter);
@@ -56,6 +61,10 @@ const void *tctreeiternext(TCTREE *tree, int *sp) {
   return NULL;
 }
 
+// Pack a key or value: uint32_t + body + NULL
+// Callers might use integers, structs, etc. for 
+// keys and values, so we can't depend on null-termination
+// to find the lenght of a key.
 void *tcpack(const void *value, uint32_t size) {
   char *buf = malloc(size + 5);
   memcpy(buf, &size, 4);
@@ -64,14 +73,20 @@ void *tcpack(const void *value, uint32_t size) {
   return buf;
 }
 
+// Insert a key-value pair. If the key already exists the value will be overwritten
 void tctreeput(TCTREE *tree, const void *kbuf, int ksiz, const void *vbuf, int vsiz) {
   void *key = tcpack(kbuf, ksiz);
   void *val = tcpack(vbuf, vsiz);
   bool inserted; 
   void ** valPtr = dict_insert(tree->dict, key, &inserted);
+  if (!inserted) {
+    free(key);
+    free(*valPtr);
+  }
   *valPtr = val;
 }
 
+// Insert a key-value pair. If the key already exists return false and keep the original value
 bool tctreeputkeep(TCTREE *tree, const void *kbuf, int ksiz, const void *vbuf, int vsiz) {
   void *key = tcpack(kbuf, ksiz); 
   void *val = tcpack(vbuf, vsiz); 
@@ -79,10 +94,14 @@ bool tctreeputkeep(TCTREE *tree, const void *kbuf, int ksiz, const void *vbuf, i
   void **valPtr = dict_insert(tree->dict, key, &inserted);
   if (inserted) {
     *valPtr = val;
+  } else {
+    free(key);
+    free(val); 
   }
   return inserted;
 }
 
+// Get the value for the given key, or NULL if the key is not in the tree
 const void *tctreeget(TCTREE *tree, const void *kbuf, int ksiz, int *sp) {
   const void *key = tcpack(kbuf, ksiz);
   void *value = dict_search(tree->dict, key);
@@ -94,10 +113,12 @@ const void *tctreeget(TCTREE *tree, const void *kbuf, int ksiz, int *sp) {
   return NULL;
 }
 
+// Remove all elements from the tree
 void tctreeclear(TCTREE *tree) {
   dict_clear(tree->dict); 
 }
 
+// Free the tree and associated iterator
 void tctreedel(TCTREE *tree) {
   dict_free(tree->dict);
   if (tree->iter) {
@@ -116,10 +137,12 @@ TCLIST *tclistnew(void) {
   return list;
 }
 
+// Get the number of elements in the list
 int tclistnum(const TCLIST *list) {
   return list->len;
 }
 
+// Null-terminate the value to be inserted, as TokyoCabinet does
 void *tclistpack(void *buf, uint32_t size) {
   void *elem = malloc(size+1);
   memcpy(elem, buf, size);
@@ -127,6 +150,7 @@ void *tclistpack(void *buf, uint32_t size) {
   return elem;
 }
 
+// Append a new element at the end of the list
 void tclistpush(TCLIST *list, const void *ptr, int size) {
   TCLISTELEM *head = list->head;
   for (int i=0; i < list->len; i++) {
@@ -139,6 +163,9 @@ void tclistpush(TCLIST *list, const void *ptr, int size) {
   list->len += 1;
 }
 
+// Remove the element at index, and return a pointer to it.
+// The caller is responsible for freeing the returned element.
+// Returns NULL if index is out of bounds.
 void *tclistremove(TCLIST *list, int index, int *sp) {
   if (index < 0 || index >= list->len) {
     return NULL;
@@ -157,6 +184,7 @@ void *tclistremove(TCLIST *list, int index, int *sp) {
   return elem;
 }
 
+// Overwrite the existing value at the given index. Noop if the index is out of bounds
 void tclistover(TCLIST *list, int index, const void *ptr, int size) {
   if (index < 0 || index >= list->len) {
     // Out of bounds, do nothing
@@ -171,14 +199,15 @@ void tclistover(TCLIST *list, int index, const void *ptr, int size) {
     free(head->elem);
   }
  
-  head->elem = tclistpack(ptr);
+  head->elem = tclistpack(ptr, size);
   head->size = size; 
 }
 
+// Get the value at index, or NULL if the index is out of bounds
 const void *tclistval(const TCLIST *list, int index, int *sp) {
   if (index >= list->len) {
     // Out of bounds, do nothing
-    return 0;
+    return NULL;
   }
   TCLISTELEM *head = list->head;
   for (int i=0; i <= index; i++) {
@@ -188,6 +217,7 @@ const void *tclistval(const TCLIST *list, int index, int *sp) {
   return head->elem;
 }
 
+// Delete the entire list, freeing all elements
 void tclistdel(TCLIST *list) {
   TCLISTELEM *head = list->head;
   for (int i=0; i < list->len; i++) {
