@@ -156,3 +156,31 @@ func TestMatchIndices(t *testing.T) {
 		t.Fatal("Expected end  index 7, got", idx[1])
 	}
 }
+
+/* Grok doesn't handle PCRE named groups well, they should be ignored */
+func TestPCRENamedCaptures(t *testing.T) {
+	g := New()
+	defer g.Free()
+
+	g.AddPatternsFromFile("../patterns/base")
+	text := "https://www.google.com/search?q=moose&sugexp=chrome,mod=16&sourceid=chrome&ie=UTF-8"
+	pattern := "%{URI}(?<fe>.*)"
+	g.Compile(pattern)
+	match := g.Match(text)
+	if match == nil {
+		t.Fatal("Unable to find match!")
+	}
+
+	captures := match.Captures()
+
+	if host := captures["URIHOST"][0]; host != "www.google.com" {
+		t.Fatal("URIHOST should be www.google.com")
+	}
+	if path := captures["URIPATH"][0]; path != "/search" {
+		t.Fatal("URIPATH should be /search")
+	}
+	if _, ok := captures["fe"]; ok {
+		t.Fatal("Should ignore named PCRE group")
+	}
+}
+
