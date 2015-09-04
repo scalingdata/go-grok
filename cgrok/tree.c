@@ -3,18 +3,14 @@
 #include <stdint.h>
 #include <string.h>
 
-// A shim to use dictlib trees instead of TC
-struct TCTREE {
-  dict *dict;
-  dict_itor *iter;
-};
-
 // Toyko cabinet accepts any arbitrary-sized data as a tree key.
 // We support this by using the first 4 bytes of the key to store the length.
 // So we have to wrap the libdict comparators with implementations that skip the first four bytes
 // of the key
 int tccmpint32(const void* k1, const void* k2) {
-  return dict_int_cmp(k1+4, k2+4);
+  uint32_t a = *(uint32_t*)(k1+4);
+  uint32_t b = *(uint32_t*)(k2+4);
+  return (a > b) - (a < b);
 }
 
 int dict_var_str_cmp(const void* k1, const void* k2) {
@@ -27,15 +23,16 @@ void tcfree(void *key, void *value) {
 }
 
 TCTREE *tctreenew(void) {
-  return tctreenew2(dict_var_str_cmp, 0);
+  return tctreenew2(dict_var_str_cmp, NULL);
 }
 
 // Make a new tree with a user-defined comparator (must be tccmpint32 or dict_var_str_cmp),
 // because of how we pack the keys
 TCTREE *tctreenew2(dict_compare_func cp, void *cmpop) {
   TCTREE *tree = malloc(sizeof(TCTREE));
-  if (!tree) {
-    return NULL;
+  if (tree == NULL) {
+    fprintf(stderr, "Failed to malloc new tree\n");
+    exit(0);
   }
   tree->dict = hb_dict_new(cp, tcfree);
   tree->iter = NULL;
@@ -70,25 +67,27 @@ const void *tctreeiternext(TCTREE *tree, int *sp) {
 // keys and values, so we can't depend on null-termination
 // to find the lenght of a key.
 void *tcpack(const void *value, uint32_t size) {
-  char *buf = malloc(size + 5);
-  if (!buf) {
+  void *buf = malloc(size + 5);
+  if (buf == NULL) {
     return NULL;
   }
+  memset(buf, 0, size+5);
   memcpy(buf, &size, 4);
   memcpy(buf+4, value, size);
-  buf[size+4] = 0;
   return buf;
 }
 
 // Insert a key-value pair. If the key already exists the value will be overwritten
 void tctreeput(TCTREE *tree, const void *kbuf, int ksiz, const void *vbuf, int vsiz) {
   void *key = tcpack(kbuf, ksiz);
-  if (!key) {
-    
+  if (key == NULL) {
+    fprintf(stderr, "Failed to malloc tree key\n");
+    exit(0);
   }
   void *val = tcpack(vbuf, vsiz);
-  if (!val) {
-
+  if (val == NULL) {
+    fprintf(stderr, "Failed to malloc tree value\n");
+    exit(0);
   }
   bool inserted; 
   void ** valPtr = dict_insert(tree->dict, key, &inserted);
@@ -102,14 +101,14 @@ void tctreeput(TCTREE *tree, const void *kbuf, int ksiz, const void *vbuf, int v
 // Insert a key-value pair. If the key already exists return false and keep the original value
 bool tctreeputkeep(TCTREE *tree, const void *kbuf, int ksiz, const void *vbuf, int vsiz) {
   void *key = tcpack(kbuf, ksiz);
-  if (!key) {
+  if (key == NULL) {
     fprintf(stderr, "Failed to malloc tree key\n");
-    return;
+    exit(0);
   } 
   void *val = tcpack(vbuf, vsiz); 
-  if (!val) {
+  if (val == NULL) {
     fprintf(stderr, "Failed to malloc tree value\n");
-    return;
+    exit(0);
   }
   bool inserted;
   void **valPtr = dict_insert(tree->dict, key, &inserted);
@@ -125,9 +124,9 @@ bool tctreeputkeep(TCTREE *tree, const void *kbuf, int ksiz, const void *vbuf, i
 // Get the value for the given key, or NULL if the key is not in the tree
 const void *tctreeget(TCTREE *tree, const void *kbuf, int ksiz, int *sp) {
   const void *key = tcpack(kbuf, ksiz);
-  if (!key) {
+  if (key == NULL) {
     fprintf(stderr, "Failed to malloc tree key\n");
-    return;
+    exit(0);
   }
   void *value = dict_search(tree->dict, key);
   *sp = 0;
@@ -146,8 +145,11 @@ void tctreeclear(TCTREE *tree) {
 
 // Free the tree and associated iterator
 void tctreedel(TCTREE *tree) {
+  if (tree == NULL) {
+    return;
+  }
   dict_free(tree->dict);
-  if (tree->iter) {
+  if (tree->iter != NULL) {
     dict_itor_free(tree->iter);
   }
   free(tree);
@@ -156,15 +158,17 @@ void tctreedel(TCTREE *tree) {
 // A simple, singly linked list
 TCLIST *tclistnew(void) {
   TCLIST *list = malloc(sizeof(TCLIST));
-  if (!list) {
-    return NULL;
+  if (list == NULL) {
+    fprintf(stderr, "Failed to malloc new list\n");
+    exit(0);
   }
   list->len = 0;
-  TCLISTELEM *newElem = malloc(sizeof(TCLISTELEM));
-  if (!newElem) {
-    return NULL;
+  TCLISTNODE *newElem = malloc(sizeof(TCLISTNODE));
+  if (newElem == NULL) {
+    fprintf(stderr, "Failed to malloc new list\n");
+    exit(0);
   }
-  newElem->elem = 0;
+  newElem->val = NULL;
   list->head = newElem;
   return list;
 }
@@ -176,29 +180,36 @@ int tclistnum(const TCLIST *list) {
 
 // Null-terminate the value to be inserted, as TokyoCabinet does
 void *tclistpack(void *buf, uint32_t size) {
-  void *elem = malloc(size+1);
-  if (!elem) {
+  void *val = malloc(size+1);
+  if (val == NULL) {
     return NULL;
   }
-  memcpy(elem, buf, size);
-  ((char *)elem)[size] = 0;
-  return elem;
+  memset(val, 0 , size+1);
+  memcpy(val, buf, size);
+  return val;
 }
 
 // Append a new element at the end of the list
 void tclistpush(TCLIST *list, const void *ptr, int size) {
-  TCLISTELEM *head = list->head;
+  TCLISTNODE *cur = list->head;
   for (int i=0; i < list->len; i++) {
-    head = head->next;
+    cur = cur->next;
   }
-  TCLISTELEM *newElem = malloc(sizeof(TCLISTELEM));
-  newElem->elem = tclistpack(ptr, size);
-  if (!newElem->elem) {
+  TCLISTNODE *newElem = malloc(sizeof(TCLISTNODE));
+  if (newElem == NULL) {
     fprintf(stderr, "Failed to malloc list element\n");
-    return;   
+    exit(0);   
   }
+
+  newElem->val = tclistpack(ptr, size);
+  if (newElem->val == NULL) {
+    free(newElem);
+    fprintf(stderr, "Failed to malloc list element\n");
+    exit(0);   
+  }
+
   newElem->size = size;
-  head->next = newElem;
+  cur->next = newElem;
   list->len += 1;
 }
 
@@ -209,18 +220,18 @@ void *tclistremove(TCLIST *list, int index, int *sp) {
   if (index < 0 || index >= list->len) {
     return NULL;
   }
-  TCLISTELEM *head = list->head;
+  TCLISTNODE *cur = list->head;
   for (int i=0; i < index; i++) {
-    head = head->next;
+    cur = cur->next;
   }
   
-  TCLISTELEM *removed = head->next;
-  head->next = removed->next;
-  void* elem = removed->elem;
+  TCLISTNODE *removed = cur->next;
+  cur->next = removed->next;
+  void* val = removed->val;
   *sp = removed->size;
   free(removed);
   list->len -= 1;
-  return elem;
+  return val;
 }
 
 // Overwrite the existing value at the given index. Noop if the index is out of bounds
@@ -229,21 +240,21 @@ void tclistover(TCLIST *list, int index, const void *ptr, int size) {
     // Out of bounds, do nothing
     return;
   }
-  TCLISTELEM *head = list->head;
+  TCLISTNODE *cur = list->head;
   for (int i=0; i <= index; i++) {
-    head = head->next;
+    cur = cur->next;
   }
 
-  if (head->elem) {
-    free(head->elem);
+  if (cur->val != NULL) {
+    free(cur->val);
   }
  
-  head->elem = tclistpack(ptr, size);
-  if (!head->elem) {
+  cur->val = tclistpack(ptr, size);
+  if (cur->val == NULL) {
     fprintf(stderr, "Failed to malloc list element\n");
-    return;
+    exit(0);
   }
-  head->size = size; 
+  cur->size = size; 
 }
 
 // Get the value at index, or NULL if the index is out of bounds
@@ -252,24 +263,24 @@ const void *tclistval(const TCLIST *list, int index, int *sp) {
     // Out of bounds, do nothing
     return NULL;
   }
-  TCLISTELEM *head = list->head;
+  TCLISTNODE *cur = list->head;
   for (int i=0; i <= index; i++) {
-    head = head->next;
+    cur = cur->next;
   }
-  *sp = head->size;
-  return head->elem;
+  *sp = cur->size;
+  return cur->val;
 }
 
 // Delete the entire list, freeing all elements
 void tclistdel(TCLIST *list) {
-  TCLISTELEM *head = list->head;
+  TCLISTNODE *cur = list->head;
   for (int i=0; i <= list->len; i++) {
-    if (head->elem) {
-      free(head->elem);
+    if (cur->val) {
+      free(cur->val);
     }
-    TCLISTELEM *oldhead = head;
-    head = head->next;
-    free(oldhead);
+    TCLISTNODE *removed = cur;
+    cur = cur->next;
+    free(removed);
   }
   free(list);
 }

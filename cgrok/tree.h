@@ -4,6 +4,12 @@
 
 typedef struct TCTREE TCTREE;
 
+// A shim to use dictlib trees instead of TC
+struct TCTREE {
+  dict *dict;
+  dict_itor *iter;
+};
+
 // A replacement for the 32-bit int key comparator
 int tccmpint32(const void* k1, const void* k2);
 
@@ -22,17 +28,17 @@ void tctreeclear(TCTREE *tree);
 
 // List functions
 
-typedef struct TCLISTELEM TCLISTELEM;
+typedef struct TCLISTNODE TCLISTNODE;
 
 typedef struct {
-  TCLISTELEM *head;
+  TCLISTNODE *head;
   int len;
 } TCLIST;
 
-struct TCLISTELEM {
+struct TCLISTNODE {
   int size;
-  void *elem;
-  TCLISTELEM *next;
+  void *val;
+  TCLISTNODE *next;
 };
 
 TCLIST *tclistnew(void);

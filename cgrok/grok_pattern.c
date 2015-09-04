@@ -79,7 +79,7 @@ int grok_patterns_import_from_file(const grok_t *grok, const char *filename) {
     // Using ftell on a text file, we may get less bytes than we expect.
     // Test if we hit EOF
     if (!feof(patfile)) {
-      grok_log(grok, LOG_PATTERNS, "Unable to open '%s' for reading: %s",
+      grok_log(grok, LOG_PATTERNS, "Didn't reach EOF for file '%s' while reading: %s",
                filename, strerror(errno));
       fprintf(stderr, "Expected %zd bytes, but read %zd.", filesize, bytes);
       return GROK_ERROR_UNEXPECTED_READ_SIZE;

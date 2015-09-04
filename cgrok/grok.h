@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include "tree.h"
+// We need to define PCRE_STATIC so PCRE doesn't __declspec(dllexport) and mangle all the method names
 #define PCRE_STATIC
 #include <pcre.h>
 #include <stdlib.h>
