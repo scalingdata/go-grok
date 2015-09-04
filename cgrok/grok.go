@@ -196,3 +196,9 @@ func (match *Match) Captures() map[string][]string {
 
 	return captures
 }
+
+/* Returns an array of two integers, where the first is the starting index of the match, and 
+   the second is the last index of the match. */
+func (match *Match) Index() []int {
+	return []int{int(match.gm.start), int(match.gm.end)}
+} 

@@ -139,3 +139,20 @@ func TestPileAddPatternsFromFile(t *testing.T) {
 		t.Fatal("Should match the Tue")
 	}
 }
+
+/* Get the index of the first match in the string */
+func TestMatchIndices(t *testing.T) {
+	text := "Tue May 15 11:21:42 [conn1047685] moveChunk deleted: May 7157"
+	g := New()
+	g.Compile("May")
+
+	match := g.Match(text)
+	
+	idx := match.Index()
+	if idx[0] != 4 {
+		t.Fatal("Expected starting index 4, got", idx[0])
+	}
+	if idx[1] != 7 {
+		t.Fatal("Expected end  index 7, got", idx[1])
+	}
+}
