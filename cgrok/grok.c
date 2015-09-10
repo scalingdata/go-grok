@@ -1,7 +1,4 @@
 #include "grok.h"
-#include <dlfcn.h>
-
-static int grok_pcre_callout(pcre_callout_block *pcb);
 
 int g_grok_global_initialized = 0;
 pcre *g_pattern_re = NULL;
@@ -21,9 +18,6 @@ grok_t *grok_new() {
 
 void grok_init(grok_t *grok) {
   //int ret;
-  /* set global pcre_callout for libpcre */
-  pcre_callout = grok_pcre_callout;
-
   grok->re = NULL;
   grok->pattern = NULL;
   grok->full_pattern = NULL;
@@ -79,53 +73,3 @@ void grok_clone(grok_t *dst, const grok_t *src) {
   dst->logmask = src->logmask;
   dst->logdepth = src->logdepth + 1;
 }
-
-static int grok_pcre_callout(pcre_callout_block *pcb) {
-  grok_t *grok = pcb->callout_data;
-  const grok_capture *gct;
-
-  gct = (grok_capture *)grok_capture_get_by_capture_number(grok,
-                                                           pcb->capture_last);
-  /* TODO(sissel): handle case where gct is not found (== NULL) */
-  if (gct->predicate_func_name != NULL) {
-    int (*predicate)(grok_t *, const grok_capture *, const char *, int, int);
-    int start, end;
-    void *handle;
-    char *lib = gct->predicate_lib;
-    start = pcb->offset_vector[ pcb->capture_last * 2 ];
-    end = pcb->offset_vector[ pcb->capture_last * 2 + 1];
-
-    if (lib != NULL && lib[0] == '\0') {
-      lib = NULL;
-    }
-
-    /* Hack so if we are dlopen()'d we can still find ourselves 
-     * This is necessary for cases like Ruby FFI which only dlopen's us
-     * and does not explicitly link/load us? */
-#ifdef PLATFORM_Darwin
-    lib = "libgrok.dylib";
-#else
-    lib = "libgrok.so";
-#endif
-
-    handle = dlopen(lib, RTLD_LAZY);
-    predicate = dlsym(handle, gct->predicate_func_name);
-    if (predicate != NULL) {
-      grok_log(grok, LOG_EXEC, "start pcre_callout func %s/%.*s",
-               (lib == NULL ? "grok" : lib), gct->predicate_func_name_len,
-               gct->predicate_func_name);
-      int ret;
-      ret = predicate(grok, gct, pcb->subject, start, end);
-      grok_log(grok, LOG_EXEC, "end pcre_callout func %s/%.*s returned: %d",
-               (lib == NULL ? "grok" : lib), gct->predicate_func_name_len,
-               gct->predicate_func_name, ret);
-      return ret;
-    } else {
-      grok_log(grok, LOG_EXEC, "No such function '%s' in library '%s'",
-               gct->predicate_func_name, lib);
-      return 0;
-    }
-  }
-
-  return 0;
-} /* int grok_pcre_callout */

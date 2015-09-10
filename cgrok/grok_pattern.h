@@ -2,7 +2,6 @@
 #define _GROK_PATTERN_H_
 
 #include "grok.h"
-#include <tcutil.h>
 
 TCLIST *grok_pattern_name_list(const grok_t *grok);
 

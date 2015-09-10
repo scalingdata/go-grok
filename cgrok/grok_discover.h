@@ -3,7 +3,7 @@
  */
 #ifndef _GROK_DISCOVER_H_
 #define _GROK_DISCOVER_H_
-#include <grok.h>
+#include "grok.h"
 
 typedef struct grok_discover {
   TCTREE *complexity_tree;
