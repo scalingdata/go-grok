@@ -101,7 +101,7 @@ int grok_patterns_import_from_string(const grok_t *grok, const char *buffer) {
 
   grok_log(grok, LOG_PATTERNS, "Importing patterns from string");
 
-  dupbuf = strdup(buffer);
+  dupbuf = string_ndup(buffer, strlen(buffer));
   strptr = dupbuf;
 
   while ((tok = strtok_r(strptr, "\n", &tokctx)) != NULL) {
