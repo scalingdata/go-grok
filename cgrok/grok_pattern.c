@@ -2,6 +2,7 @@
 #include <string.h>
 #include <errno.h>
 
+#include "stringhelper.h"
 #include "grok.h"
 #include "grok_pattern.h"
 

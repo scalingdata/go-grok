@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "stringhelper.h"
 #include "grok_logging.h"
 #include "predicates.h"
 
