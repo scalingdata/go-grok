@@ -383,6 +383,22 @@ static void grok_capture_add_predicate(grok_t *grok, int capture_id,
   grok_capture_add(grok, gct, renamed_only);
 }
 
+static int grok_parse_capture_id(char* groupName, int maxLen, int *id) {
+	int i = 0;
+	for (i=0; i<maxLen; i++) {
+		printf("Char: %i %i %i\n", groupName[i], maxLen, i);
+		if (groupName[i] == 0) {
+			break;
+		}
+		if (! ((groupName[i] >= '0' && groupName[i] <= '9') || (groupName[i] >= 'a' && groupName[i] <= 'f'))) {
+			return 0;
+		}
+	}
+	*id = strtol(groupName, NULL, 16);
+	printf("Got number %i\n", *id);
+	return 1; 
+}
+
 static void grok_study_capture_map(grok_t *grok, int only_renamed) {
   char *nametable;
   grok_capture *gct;
@@ -405,10 +421,10 @@ static void grok_study_capture_map(grok_t *grok, int only_renamed) {
     stringnum = (nametable[offset] << 8) + nametable[offset + 1];
     char *groupName = nametable + offset + 2;
     capture_id = -1;
-    sscanf(groupName, CAPTURE_FORMAT, &capture_id);
+    int match = grok_parse_capture_id(groupName, nametable_entrysize, &capture_id);
 
     // If scanf didn't extract a number, this isn't a Grok capture group
-    if (capture_id >= 0) {
+    if (match == 1) {
       grok_log(grok, LOG_COMPILE, "Studying capture %d", capture_id);
       gct = (grok_capture *)grok_capture_get_by_id(grok, capture_id);
       if (gct) {
