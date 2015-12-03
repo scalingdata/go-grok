@@ -148,7 +148,7 @@ func TestMatchIndices(t *testing.T) {
 	g.Compile("May")
 
 	match := g.Match(text)
-	
+
 	idx := match.FindIndex()
 	if idx[0] != 4 {
 		t.Fatal("Expected starting index 4, got", idx[0])
@@ -159,7 +159,7 @@ func TestMatchIndices(t *testing.T) {
 }
 
 /* Support PCRE named captures: they can't start with `_`, and they're
-    prefixed with `:` */
+   prefixed with `:` */
 func TestPCRENamedCaptures(t *testing.T) {
 	g := New()
 	defer g.Free()
@@ -193,20 +193,44 @@ func TestPCRENamedCaptures(t *testing.T) {
 	if len(captures[":year"]) != 1 {
 		t.Fatal("Expected one group named year")
 	}
-        if year := captures[":year"][0]; year != "2000" {
+	if year := captures[":year"][0]; year != "2000" {
 		t.Fatal("year should be '2000'")
 	}
 	if len(captures[":host"]) != 1 {
 		t.Fatal("Expected one group named host")
 	}
-        if host := captures[":host"][0]; host != "ALLCAPSHOST" {
+	if host := captures[":host"][0]; host != "ALLCAPSHOST" {
 		t.Fatal("host should be 'ALLCAPSHOST'")
 	}
 	if len(captures["BASE10NUM"]) != 1 {
 		t.Fatal("Expected one group named BASE10NUM")
 	}
-        if num := captures["BASE10NUM"][0]; num != "12345" {
+	if num := captures["BASE10NUM"][0]; num != "12345" {
 		t.Fatal("BASE10NUM should be '12345'")
+	}
+}
+
+/* Test PCRE named groups of various lengths */
+func TestPCRENamedCaptureHexNum(t *testing.T) {
+	g := New()
+	defer g.Free()
+
+	g.AddPatternsFromFile("../patterns/base")
+	text := "ALLCAPSHOST"
+	pattern := "(?P<deadbeef>[A-Z]*)"
+	g.Compile(pattern)
+	match := g.Match(text)
+	if match == nil {
+		t.Fatal("Unable to find match!")
+	}
+
+	captures := match.Captures()
+
+	if len(captures[":deadbeef"]) != 1 {
+		t.Fatal("Expected one group named deadbeef")
+	}
+	if host := captures[":deadbeef"][0]; host != "ALLCAPSHOST" {
+		t.Fatal("deadbeef should be 'ALLCAPSHOST'")
 	}
 }
 
@@ -222,26 +246,26 @@ func TestConcurrentCaptures(t *testing.T) {
 	pattern := "%{WORD:owner} %{NOTSPACE:bucket} \\[%{HTTPDATE:timestamp}\\] %{IP:clientip} %{NOTSPACE:requester} %{NOTSPACE:request_id} %{NOTSPACE:operation} %{NOTSPACE:key} (?:\"%{S3_REQUEST_LINE}\"|-) (?:%{INT:response}|-) (?:-|%{NOTSPACE:error_code}) (?:%{INT:bytes}|-) (?:%{INT:object_size}|-) (?:%{INT:request_time_ms}|-) (?:%{INT:turnaround_time_ms}|-) (?:%{QS:referrer}|-) (?:\"?%{QS:agent}\"?|-) (?:-|%{NOTSPACE:version_id})"
 	g.Compile(pattern)
 	var s sync.WaitGroup
-	for i := 0 ; i< 10000; i++ {
-		s.Add(1)	
-		go func(){
+	for i := 0; i < 10000; i++ {
+		s.Add(1)
+		go func() {
 			defer s.Done()
 			for j := 0; j < 5; j++ {
-				if i % 2 == 0 {
+				if i%2 == 0 {
 					match := g.Match(text1)
 					if match == nil {
 						t.Fatal("Unable to match string 1")
 					}
 					captures := match.Captures()
 					if captures["HTTPDATE:timestamp"][0] != "11/Apr/2015:03:27:40 +0000" {
-						t.Fatal("Got unexpected timestamp "+captures["HTTPDATE:timestamp"][0])
-					}	
- 					if captures["QS:agent"][0] != "\"S3Console/0.4\"" {
+						t.Fatal("Got unexpected timestamp " + captures["HTTPDATE:timestamp"][0])
+					}
+					if captures["QS:agent"][0] != "\"S3Console/0.4\"" {
 						t.Fatal("Got unexpected agent " + captures["QS:agent"][0])
 					}
 					if captures["INT:bytes"][0] != "370" {
-                                                t.Fatal("Got unexpected bytes "+captures["INT:bytes"][0])
-                                        }
+						t.Fatal("Got unexpected bytes " + captures["INT:bytes"][0])
+					}
 					match.Free()
 				} else {
 					match := g.Match(text2)
@@ -250,16 +274,16 @@ func TestConcurrentCaptures(t *testing.T) {
 					}
 					captures := match.Captures()
 					if captures["HTTPDATE:timestamp"][0] != "24/Jul/2015:01:34:43 +0000" {
-						t.Fatal("Got unexpected timestamp "+captures["HTTPDATE:timestamp"][0])
-					}	
- 					if captures["QS:agent"][0] != "\"curl/7.37.1\"" {
-						t.Fatal("Got unexpected agent "+captures["QS:agent"][0])
+						t.Fatal("Got unexpected timestamp " + captures["HTTPDATE:timestamp"][0])
+					}
+					if captures["QS:agent"][0] != "\"curl/7.37.1\"" {
+						t.Fatal("Got unexpected agent " + captures["QS:agent"][0])
 					}
 					if captures["INT:bytes"][0] != "" {
-						t.Fatal("Got unexpected bytes "+captures["INT:bytes"][0])
+						t.Fatal("Got unexpected bytes " + captures["INT:bytes"][0])
 					}
 					if captures["INT:object_size"][0] != "836" {
-						t.Fatal("Got unexpected size "+captures["INT:object_size"][0])
+						t.Fatal("Got unexpected size " + captures["INT:object_size"][0])
 					}
 					match.Free()
 				}
