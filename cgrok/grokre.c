@@ -397,7 +397,7 @@ static int grok_parse_capture_id(char* groupName, int *id) {
 }
 
 static void grok_study_capture_map(grok_t *grok, int only_renamed) {
-  char *nametable;
+  unsigned char *nametable;
   grok_capture *gct;
   int nametable_size;
   int nametable_entrysize;
@@ -416,7 +416,7 @@ static void grok_study_capture_map(grok_t *grok, int only_renamed) {
   for (i = 0; i < nametable_size; i++) {
     offset = i * nametable_entrysize;
     stringnum = (nametable[offset] << 8) + nametable[offset + 1];
-    char *groupName = nametable + offset + 2;
+    unsigned char *groupName = nametable + offset + 2;
     capture_id = -1;
     int match = grok_parse_capture_id(groupName, &capture_id);
 
