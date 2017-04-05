@@ -306,7 +306,7 @@ static char *grok_pattern_expand(grok_t *grok, int renamed_only) {
 
     if (pattern_regex_needs_free) {
       /* If we need to free,   */
-      free(pattern_regex);
+      free((void*) pattern_regex);
     }
     if (patname != NULL) {
       pcre_free_substring(patname);
